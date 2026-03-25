@@ -12,7 +12,6 @@ interface Config {
 }
 
 class QClawMobile {
-  private messages: Message[] = [];
   private config: Config;
   private isConnected = false;
 
