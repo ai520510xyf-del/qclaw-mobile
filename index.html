@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#6366f1" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <title>QClaw 助手</title>
+    <link rel="stylesheet" href="/src/style.css" />
+  </head>
+  <body>
+    <!-- Header -->
+    <header class="app-header">
+      <div class="header-title">QClaw 助手</div>
+      <div class="connection-status" id="connectionStatus">
+        <span class="status-dot" id="statusDot"></span>
+        <span class="status-text" id="statusText">连接中...</span>
+      </div>
+    </header>
+
+    <!-- Chat Messages -->
+    <main class="chat-container" id="chatContainer">
+      <!-- Welcome Message -->
+      <div class="message message-bot">
+        <div class="message-avatar bot-avatar">Q</div>
+        <div class="message-bubble bot-bubble">
+          👋 你好！我是 QClaw 助手。连接成功后，你可以在这里和我对话，我会帮你完成各种任务。
+        </div>
+      </div>
+    </main>
+
+    <!-- Typing Indicator -->
+    <div class="typing-indicator" id="typingIndicator" style="display:none;">
+      <div class="message message-bot">
+        <div class="message-avatar bot-avatar">Q</div>
+        <div class="message-bubble bot-bubble">
+          <span class="typing-dots">
+            <span class="dot"></span>
+            <span class="dot"></span>
+            <span class="dot"></span>
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Input Area -->
+    <footer class="input-area">
+      <div class="input-wrapper">
+        <textarea
+          id="messageInput"
+          placeholder="输入消息..."
+          rows="1"
+          maxlength="4000"
+          autofocus
+        ></textarea>
+        <button class="send-btn" id="sendBtn" disabled>
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="22" y1="2" x2="11" y2="13"></line>
+            <polygon points="22 2 15 22 11 13 2 9 22 2"></polygon>
+          </svg>
+        </button>
+      </div>
+    </footer>
+
+    <!-- Settings Modal -->
+    <div class="modal-overlay" id="settingsModal" style="display:none;">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>连接设置</h3>
+          <button class="modal-close" id="closeSettings">✕</button>
+        </div>
+        <div class="modal-body">
+          <label class="input-label">网关地址</label>
+          <input type="text" id="gatewayUrl" class="settings-input" value="http://127.0.0.1:28789" placeholder="http://127.0.0.1:28789" />
+          
+          <label class="input-label">认证令牌</label>
+          <input type="password" id="authToken" class="settings-input" value="cf97ab4412bea2c394b73d291c4ea2cf96843f1801d7cd3b" placeholder="认证令牌" />
+          
+          <label class="input-label">用户 ID</label>
+          <input type="text" id="userId" class="settings-input" value="1F0C0F1FFED429F64227E788F6F710E6" placeholder="用户 ID" />
+
+          <label class="input-label">频道</label>
+          <input type="text" id="channel" class="settings-input" value="qqbot" placeholder="频道" />
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" id="resetSettings">重置</button>
+          <button class="btn btn-primary" id="saveSettings">保存</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Button -->
+    <button class="settings-btn" id="openSettings">⚙️</button>
+
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
