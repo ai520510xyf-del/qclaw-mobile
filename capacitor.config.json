@@ -1,0 +1,8 @@
+{
+  "appId": "com.qclaw.mobile",
+  "appName": "QClaw Mobile",
+  "webDir": "dist",
+  "server": {
+    "androidScheme": "https"
+  }
+}
