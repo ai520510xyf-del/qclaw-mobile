@@ -1,39 +1,52 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-import { Message } from '../types/chat';
 
-interface ChatState {
-  messages: Message[];
-  isTyping: boolean;
-  addMessage: (message: Message) => void;
-  updateMessage: (id: string, content: string) => void;
-  deleteMessage: (id: string) => void;
-  clearMessages: () => void;
-  setTyping: (typing: boolean) => void;
+export interface ChatMessage {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: number;
 }
 
-export const useChatStore = create<ChatState>()(
-  persist(
-    (set, get) => ({
-      messages: [],
-      isTyping: false,
-      addMessage: (message) => set((state) => ({ 
-        messages: [...state.messages, message] 
-      })),
-      updateMessage: (id, content) => set((state) => ({
-        messages: state.messages.map((msg) =>
-          msg.id === id ? { ...msg, content } : msg
-        ),
-      })),
-      deleteMessage: (id) => set((state) => ({
-        messages: state.messages.filter((msg) => msg.id !== id),
-      })),
-      clearMessages: () => set({ messages: [] }),
-      setTyping: (typing) => set({ isTyping: typing }),
-    }),
-    {
-      name: 'qclaw-chat',
-      partialize: (state) => ({ messages: state.messages }),
-    }
-  )
-);
+interface ChatStore {
+  messages: ChatMessage[];
+  isLoading: boolean;
+  addMessage: (msg: Omit<ChatMessage, 'id' | 'timestamp'>) => string;
+  updateMessage: (id: string, content: string) => void;
+  setLoading: (loading: boolean) => void;
+  clearMessages: () => void;
+}
+
+let idCounter = 0;
+function genId() {
+  return `msg_${Date.now()}_${++idCounter}`;
+}
+
+export const useChatStore = create<ChatStore>((set, get) => ({
+  messages: [],
+  isLoading: false,
+
+  addMessage: (msg) => {
+    const id = genId();
+    const newMsg: ChatMessage = {
+      ...msg,
+      id,
+      timestamp: Date.now(),
+    };
+    set((state) => ({
+      messages: [...state.messages, newMsg],
+    }));
+    return id;
+  },
+
+  updateMessage: (id, content) => {
+    set((state) => ({
+      messages: state.messages.map((m) =>
+        m.id === id ? { ...m, content } : m
+      ),
+    }));
+  },
+
+  setLoading: (loading) => set({ isLoading: loading }),
+
+  clearMessages: () => set({ messages: [] }),
+}));

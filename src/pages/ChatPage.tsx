@@ -1,90 +1,197 @@
-import { useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useChatStore } from '../stores/chatStore';
-import { useSettingsStore } from '../stores/settingsStore';
-import { MessageList } from '../components/chat/MessageList';
-import { ChatInput } from '../components/chat/ChatInput';
-import { PageHeader } from '../components/layout/PageHeader';
-import { Message } from '../types/chat';
-import { generateId } from '../utils/validation';
+import { getAuth } from '../services/auth';
+import { streamChat } from '../services/api';
 
-export function ChatPage() {
-  const { messages, isTyping, addMessage, updateMessage, deleteMessage, clearMessages, setTyping } = useChatStore();
-  const { isConnected, gatewayUrl, token } = useSettingsStore();
+export default function ChatPage() {
+  const [input, setInput] = useState('');
+  const [config, setConfig] = useState<{ gatewayUrl: string; token: string } | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
-  const handleSend = useCallback(async (content: string) => {
+  const { messages, isLoading, addMessage, updateMessage, setLoading, clearMessages } = useChatStore();
+
+  // Load auth config
+  useEffect(() => {
+    getAuth().then((auth) => {
+      if (auth) setConfig(auth);
+    });
+  }, []);
+
+  // Auto scroll
+  const scrollToBottom = useCallback(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading || !config) return;
+
+    const userMsg = input.trim();
+    setInput('');
+    setLoading(true);
+
     // Add user message
-    const userMessage: Message = {
-      id: generateId(),
-      role: 'user',
-      content,
-      timestamp: Date.now(),
-      status: 'sent',
-    };
-    addMessage(userMessage);
+    addMessage({ role: 'user', content: userMsg });
 
-    // Show typing indicator
-    setTyping(true);
+    // Prepare messages for API
+    const apiMessages = [
+      ...messages.map((m) => ({ role: m.role, content: m.content })),
+      { role: 'user' as const, content: userMsg },
+    ];
 
-    // Simulate AI response
-    setTimeout(() => {
-      const aiMessage: Message = {
-        id: generateId(),
-        role: 'assistant',
-        content: getAIResponse(content),
-        timestamp: Date.now(),
-        status: 'sent',
-      };
-      addMessage(aiMessage);
-      setTyping(false);
-    }, 1500);
-  }, [addMessage, setTyping]);
+    // Create abort controller
+    abortRef.current = new AbortController();
 
-  const getAIResponse = (input: string): string => {
-    // Demo responses based on input
-    if (input.includes('你好') || input.includes('hello') || input.includes('hi')) {
-      return '你好！我是 QClaw AI 助手。有什么我可以帮助你的吗？';
+    // Add placeholder for AI response
+    const aiMsgId = addMessage({ role: 'assistant', content: '' });
+    let fullResponse = '';
+
+    try {
+      const generator = streamChat({
+        gatewayUrl: config.gatewayUrl,
+        token: config.token,
+        messages: apiMessages,
+        signal: abortRef.current.signal,
+      });
+
+      for await (const chunk of generator) {
+        fullResponse += chunk;
+        updateMessage(aiMsgId, fullResponse);
+      }
+    } catch (err) {
+      if ((err as Error).name === 'AbortError') {
+        updateMessage(aiMsgId, fullResponse || '[已停止]');
+      } else {
+        updateMessage(aiMsgId, `[错误] ${(err as Error).message}`);
+      }
+    } finally {
+      setLoading(false);
+      abortRef.current = null;
     }
-    if (input.includes('天气')) {
-      return '当前天气：多云转晴，22°C。适合外出活动！☀️';
-    }
-    if (input.includes('帮助') || input.includes('help')) {
-      return '我可以帮助你：\n\n🔍 搜索 - 查询网络信息\n✍️ 写作 - 辅助写作和改写\n🌐 翻译 - 多语言翻译\n💻 代码 - 代码生成和调试\n☀️ 天气 - 查询天气预报\n📅 日历 - 管理日程\n⏰ 提醒 - 创建定时提醒';
-    }
-    return `收到你的消息：「${input}」\n\n这是一个演示回复。在实际使用中，请配置 Gateway URL 和 Token 来连接真实的 QClaw Gateway。\n\n当前配置：\n- Gateway: ${gatewayUrl}\n- 已连接: ${isConnected ? '是' : '否'}`;
   };
 
-  const handleDelete = (id: string) => {
-    deleteMessage(id);
+  const handleStop = () => {
+    abortRef.current?.abort();
   };
 
-  const connectionStatus = isConnected ? (
-    <span className="flex items-center gap-1 text-xs text-success">
-      <span className="w-2 h-2 bg-success rounded-full" />
-      已连接
-    </span>
-  ) : (
-    <span className="flex items-center gap-1 text-xs text-text-muted">
-      <span className="w-2 h-2 bg-text-muted rounded-full" />
-      未连接
-    </span>
-  );
+  const handleClear = () => {
+    if (confirm('确定清空对话？')) {
+      clearMessages();
+    }
+  };
 
   return (
-    <div className="flex flex-col h-full bg-background-dark">
-      <PageHeader
-        title="QClaw"
-        subtitle="AI 助手"
-        right={connectionStatus}
-        gradient
-      />
-      
-      <MessageList
-        messages={messages}
-        isTyping={isTyping}
-        onDeleteMessage={handleDelete}
-      />
-      
-      <ChatInput onSend={handleSend} disabled={isTyping} />
+    <div className="flex flex-col h-full" style={{ background: '#0A0A14' }}>
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3" style={{ background: '#12121E', borderBottom: '1px solid #1E1E30' }}>
+        <div>
+          <h1 className="font-semibold" style={{ color: '#FFFFFF' }}>QClaw</h1>
+          <p className="text-xs" style={{ color: '#8888AA' }}>随时随地，AI 相伴</p>
+        </div>
+        <button
+          onClick={handleClear}
+          className="px-3 py-1.5 rounded-lg text-sm transition-all hover:opacity-80"
+          style={{ background: '#1E1E30', color: '#8888AA' }}
+        >
+          清空
+        </button>
+      </div>
+
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4">
+        {messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full text-center">
+            <div className="text-5xl mb-4">🦞</div>
+            <h2 className="text-lg font-medium mb-2" style={{ color: '#FFFFFF' }}>你好，我是 QClaw</h2>
+            <p style={{ color: '#8888AA' }}>有什么可以帮你的吗？</p>
+          </div>
+        )}
+
+        {messages.map((msg) => (
+          <div
+            key={msg.id}
+            className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
+          >
+            <div
+              className="max-w-[80%] px-4 py-3 rounded-2xl"
+              style={{
+                background: msg.role === 'user'
+                  ? 'linear-gradient(135deg, #667EEA, #764BA2)'
+                  : '#12121E',
+                color: '#FFFFFF',
+                borderRadius: msg.role === 'user' ? '16px 16px 4px 16px' : '16px 16px 16px 4px',
+              }}
+            >
+              <p className="whitespace-pre-wrap break-words">{msg.content}</p>
+              <p className="text-xs mt-1 opacity-60">
+                {new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+              </p>
+            </div>
+          </div>
+        ))}
+
+        {isLoading && (
+          <div className="flex justify-start">
+            <div className="px-4 py-3 rounded-2xl" style={{ background: '#12121E', borderRadius: '16px 16px 16px 4px' }}>
+              <div className="flex items-center gap-1">
+                <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: '#667EEA', animationDelay: '0ms' }} />
+                <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: '#667EEA', animationDelay: '150ms' }} />
+                <div className="w-2 h-2 rounded-full animate-bounce" style={{ background: '#667EEA', animationDelay: '300ms' }} />
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div ref={messagesEndRef} />
+      </div>
+
+      {/* Input */}
+      <div className="p-4" style={{ background: '#12121E', borderTop: '1px solid #1E1E30' }}>
+        <div className="flex items-center gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
+            placeholder="输入消息..."
+            disabled={isLoading || !config}
+            className="flex-1 px-4 py-3 rounded-xl outline-none"
+            style={{ background: '#0A0A14', color: '#FFFFFF', border: '1px solid #1E1E30' }}
+          />
+          {isLoading ? (
+            <button
+              onClick={handleStop}
+              className="w-12 h-12 rounded-xl flex items-center justify-center"
+              style={{ background: '#EF4444' }}
+            >
+              <span className="text-white text-lg">■</span>
+            </button>
+          ) : (
+            <button
+              onClick={handleSend}
+              disabled={!input.trim() || !config}
+              className="w-12 h-12 rounded-xl flex items-center justify-center transition-all"
+              style={{
+                background: input.trim() && config
+                  ? 'linear-gradient(135deg, #667EEA, #764BA2)'
+                  : '#1E1E30',
+                opacity: input.trim() && config ? 1 : 0.5,
+              }}
+            >
+              <span className="text-white text-lg">↑</span>
+            </button>
+          )}
+        </div>
+        {!config && (
+          <p className="text-xs text-center mt-2" style={{ color: '#8888AA' }}>
+            请先在设置中配置连接
+          </p>
+        )}
+      </div>
     </div>
   );
 }
