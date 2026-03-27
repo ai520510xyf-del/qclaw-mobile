@@ -5,10 +5,14 @@ import ChatPage from './pages/ChatPage';
 import SkillsPage from './pages/SkillsPage';
 import TasksPage from './pages/TasksPage';
 import SettingsPage from './pages/SettingsPage';
+import StudioPage from './pages/StudioPage';
+import TokenPage from './pages/TokenPage';
+import MemoryPage from './pages/MemoryPage';
 import { getAuth } from './services/auth';
 
 const TABS = [
   { path: '/chat', icon: '💬', label: '聊天' },
+  { path: '/studio', icon: '💻', label: '工作室' },
   { path: '/skills', icon: '📋', label: '技能' },
   { path: '/tasks', icon: '⏰', label: '任务' },
   { path: '/settings', icon: '⚙️', label: '设置' },
@@ -66,12 +70,24 @@ export default function App() {
             element={<ProtectedRoute><ChatPage /></ProtectedRoute>}
           />
           <Route
+            path="/studio"
+            element={<ProtectedRoute><StudioPage /></ProtectedRoute>}
+          />
+          <Route
             path="/skills"
             element={<ProtectedRoute><SkillsPage /></ProtectedRoute>}
           />
           <Route
             path="/tasks"
             element={<ProtectedRoute><TasksPage /></ProtectedRoute>}
+          />
+          <Route
+            path="/tokens"
+            element={<ProtectedRoute><TokenPage /></ProtectedRoute>}
+          />
+          <Route
+            path="/memory"
+            element={<ProtectedRoute><MemoryPage /></ProtectedRoute>}
           />
           <Route
             path="/settings"
